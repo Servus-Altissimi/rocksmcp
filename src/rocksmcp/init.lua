@@ -36,7 +36,7 @@ function mcp.server(opts)
     registry = {
       tools = {}, tool_order = {},
       resources = {}, resource_order = {},
-      templates = {}, template_order = {},
+      template_order = {},
       prompts = {}, prompt_order = {},
       completion = nil,
       subscriptions = {},
@@ -72,9 +72,16 @@ function Server:resource_template(def)
   assert(type(def) == "table" and def.uri_template and def.name and def.read,
     "resource_template requires uri_template, name, read")
   local server_mod = require("rocksmcp.server")
-  def.pattern, def.var_names = server_mod.compile_template(def.uri_template)
+  local tdef = {
+    uri_template = def.uri_template,
+    name = def.name,
+    description = def.description,
+    mime = def.mime,
+    read = def.read,
+  }
+  tdef.pattern, tdef.var_names = server_mod.compile_template(def.uri_template)
   local order = self.registry.template_order
-  order[#order + 1] = def
+  order[#order + 1] = tdef
   return self
 end
 

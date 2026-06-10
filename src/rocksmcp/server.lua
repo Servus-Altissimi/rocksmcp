@@ -26,11 +26,20 @@ function M.paginate(list, cursor)
   return page, next_cursor
 end
 
--- compile "scheme://x/{a}/{b}" into an anchored Lua pattern + capture names
+-- compile "scheme://x/{a}/{b}" into an anchored Lua pattern + capture names.
+-- Matching uses lazy captures: the first variable takes the shortest match,
+-- later variables absorb the remainder (differs from greedy RFC 6570).
 function M.compile_template(tmpl)
   local names = {}
   for n in tmpl:gmatch("{(%w+)}") do
     names[#names + 1] = n
+  end
+  local seen = {}
+  for _, n in ipairs(names) do
+    if seen[n] then
+      error("duplicate variable in uri_template: " .. n, 0)
+    end
+    seen[n] = true
   end
   local escaped = tmpl:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1")
   local pattern = "^" .. escaped:gsub("{%w+}", "(.-)") .. "$"
@@ -51,9 +60,12 @@ local function shape_contents(uri, mime, res)
   if type(res) == "table" then
     if res.contents ~= nil then return res end
     if res.text ~= nil or res.blob ~= nil then
-      res.uri = res.uri or uri
-      res.mimeType = res.mimeType or mime
-      return { contents = json.array({ res }) }
+      return { contents = json.array({ {
+        uri = res.uri or uri,
+        mimeType = res.mimeType or mime,
+        text = res.text,
+        blob = res.blob,
+      } }) }
     end
     error("resource read handler returned an unrecognized table", 0)
   end
@@ -201,6 +213,9 @@ function M.build_methods(registry)
 
   methods["resources/unsubscribe"] = {
     run = function(params)
+      if type(params.uri) ~= "string" then
+        error({ code = -32602, message = "uri is required" }, 0)
+      end
       registry.subscriptions[params.uri] = nil
       return json.object({})
     end,

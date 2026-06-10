@@ -120,4 +120,38 @@ describe("resources", function()
       params = { uri = "xxy://aXb/42" } })
     assert.equal(-32002, miss[1].error.code)
   end)
+
+  it("does not pollute cached handler result tables", function()
+    local cached = { text = "static" }
+    local srv = mcp.server{ name = "s", version = "0" }
+    srv:resource{ uri = "c://one", name = "One", mime = "text/plain",
+      read = function() return cached end }
+    srv:resource{ uri = "c://two", name = "Two", mime = "text/x-other",
+      read = function() return cached end }
+    local e = srv:engine()
+    H.init(e)
+    H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/read",
+      params = { uri = "c://one" } })
+    local r2 = H.rpc(e, { jsonrpc = "2.0", id = 3, method = "resources/read",
+      params = { uri = "c://two" } })
+    assert.equal("c://two", r2[1].result.contents[1].uri)
+    assert.equal("text/x-other", r2[1].result.contents[1].mimeType)
+    assert.is_nil(cached.uri)
+  end)
+
+  it("rejects unsubscribe without uri", function()
+    local e = file_server():engine()
+    H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/unsubscribe",
+      params = json.object({}) })
+    assert.equal(-32602, r[1].error.code)
+  end)
+
+  it("rejects duplicate template variables", function()
+    local srv = mcp.server{ name = "s", version = "0" }
+    assert.error_matches(function()
+      srv:resource_template{ uri_template = "d://{x}/{x}", name = "T",
+        read = function() return "" end }
+    end, "duplicate variable")
+  end)
 end)
