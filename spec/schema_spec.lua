@@ -13,8 +13,8 @@ describe("schema", function()
   it("omits empty required and encodes properties as object", function()
     local sch = S.obj({}, {})
     assert.is_nil(sch.required)
-    assert.equal('{"type":"object","properties":{}}',
-      json.encode({ type = sch.type, properties = sch.properties }):gsub("%s", ""))
+    assert.equal("object", sch.type)
+    assert.equal("{}", json.encode(sch.properties):gsub("%s", ""))
   end)
 
   it("supports opts on primitives", function()
