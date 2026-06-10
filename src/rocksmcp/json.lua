@@ -14,6 +14,9 @@ end
 
 -- Swap codec (table, or module name like "rocksmcp.json.cjson").
 -- Returns the previous codec so callers can restore it.
+-- NOTE: null sentinels are codec-specific. Values decoded under one codec
+-- must not be re-encoded under another — the old sentinel would encode as
+-- an ordinary value.
 function M.use(c)
   if type(c) == "string" then c = require(c) end
   assert(type(c) == "table" and c.encode and c.decode and c.null ~= nil

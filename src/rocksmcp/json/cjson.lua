@@ -13,9 +13,9 @@ function M.encode(value)
 end
 
 function M.decode(str)
-  local v, err = cjson.decode(str)
-  if v == nil then return nil, err end
-  return v
+  local ok, result = pcall(cjson.decode, str)
+  if not ok then return nil, result end
+  return result
 end
 
 function M.array(t)
