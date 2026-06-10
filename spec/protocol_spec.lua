@@ -103,4 +103,75 @@ describe("protocol lifecycle", function()
     assert.equal(1, #out)
     assert.equal("notifications/tools/list_changed", json.decode(out[1]).method)
   end)
+
+  it("returns empty object result for nil handler results", function()
+    local s = protocol.new({
+      info = { name = "t", version = "0" },
+      capabilities = function() return json.object({}) end,
+      methods = { ["x/nilret"] = { run = function() return nil end } },
+    })
+    H.init(s)
+    local r = H.rpc(s, { jsonrpc = "2.0", id = 2, method = "x/nilret" })
+    assert.is_table(r[1].result)
+    assert.is_nil(r[1].error)
+  end)
+
+  it("rejects duplicate in-flight request ids", function()
+    local s = protocol.new({
+      info = { name = "t", version = "0" },
+      capabilities = function() return json.object({}) end,
+      methods = { ["x/park"] = { run = function(p, ctx)
+        return ctx.sample({})
+      end } },
+    })
+    H.rpc(s, { jsonrpc = "2.0", id = 1, method = "initialize",
+      params = { protocolVersion = "2025-06-18",
+                 capabilities = { sampling = json.object({}) },
+                 clientInfo = { name = "c", version = "0" } } })
+    H.rpc(s, { jsonrpc = "2.0", id = 7, method = "x/park" })
+    local dup = H.rpc(s, { jsonrpc = "2.0", id = 7, method = "x/park" })
+    assert.equal(-32600, dup[1].error.code)
+  end)
+
+  it("rejects valid non-object json as invalid request", function()
+    local s = protocol.new({
+      info = { name = "t", version = "0" },
+      capabilities = function() return json.object({}) end,
+      methods = {},
+    })
+    local r = json.decode(s:feed("42")[1])
+    assert.equal(-32600, r.error.code)
+  end)
+
+  it("fails handlers that yield outside client requests", function()
+    local s = protocol.new({
+      info = { name = "t", version = "0" },
+      capabilities = function() return json.object({}) end,
+      methods = { ["x/stray"] = { run = function() coroutine.yield() return 1 end } },
+    })
+    H.init(s)
+    local r = H.rpc(s, { jsonrpc = "2.0", id = 2, method = "x/stray" })
+    assert.equal(-32603, r[1].error.code)
+    assert.matches("yielded outside", r[1].error.message)
+  end)
+
+  it("cancelling a parked request cancels the outgoing client request", function()
+    local s = protocol.new({
+      info = { name = "t", version = "0" },
+      capabilities = function() return json.object({}) end,
+      methods = { ["x/park"] = { run = function(p, ctx) return ctx.sample({}) end } },
+    })
+    H.rpc(s, { jsonrpc = "2.0", id = 1, method = "initialize",
+      params = { protocolVersion = "2025-06-18",
+                 capabilities = { sampling = json.object({}) },
+                 clientInfo = { name = "c", version = "0" } } })
+    local outs = H.rpc(s, { jsonrpc = "2.0", id = 7, method = "x/park" })
+    local out_id = outs[1].id
+    local notes = H.rpc(s, { jsonrpc = "2.0", method = "notifications/cancelled",
+      params = { requestId = 7 } })
+    assert.equal("notifications/cancelled", notes[1].method)
+    assert.equal(out_id, notes[1].params.requestId)
+    -- a late response for the abandoned request is silently dropped
+    assert.same({}, s:feed(json.encode({ jsonrpc = "2.0", id = out_id, result = {} })))
+  end)
 end)

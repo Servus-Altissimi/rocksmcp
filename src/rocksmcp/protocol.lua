@@ -49,6 +49,7 @@ function M.new(opts)
     inflight = {},
     pending_out = {},
     next_out_id = 0,
+    negotiated_version = nil,
     current_entry = nil,
     out = {},
   }, Session)
@@ -81,11 +82,19 @@ function Session:step(entry, ...)
   local ok, res = coroutine.resume(entry.co, ...)
   self.current_entry = nil
   if ok and coroutine.status(entry.co) == "suspended" then
-    return -- parked awaiting a client response
+    if entry.awaiting then
+      return -- parked awaiting a client response
+    end
+    -- handler yielded outside client_request: unrecoverable, fail the request
+    self.inflight[entry.key] = nil
+    self:queue((entry.on_error or default_on_error)(entry.id,
+      "handler yielded outside of a client request"))
+    return
   end
   self.inflight[entry.key] = nil
   if entry.cancelled then return end -- spec: no response after cancellation
   if ok then
+    if res == nil then res = json.object({}) end
     self:queue(M.result_msg(entry.id, res))
   else
     local handler = entry.on_error or default_on_error
@@ -103,8 +112,10 @@ function Session:client_request(method, params)
   self.next_out_id = self.next_out_id + 1
   local id = self.next_out_id
   self.pending_out[id] = entry
+  entry.awaiting = true
   self:queue({ jsonrpc = "2.0", id = id, method = method, params = params })
   local result, err = coroutine.yield()
+  entry.awaiting = false
   if err ~= nil then
     error("client returned error for " .. method .. ": "
       .. tostring(type(err) == "table" and err.message or err), 0)
@@ -112,7 +123,7 @@ function Session:client_request(method, params)
   return result
 end
 
-function Session:make_ctx(id, params)
+function Session:make_ctx(params)
   local session = self
   local meta = type(params) == "table" and type(params._meta) == "table" and params._meta or {}
   local token = meta.progressToken
@@ -144,7 +155,8 @@ function Session:make_ctx(id, params)
   local function gated(cap_key, method)
     return function(req_params)
       local caps = (session.client and session.client.capabilities) or {}
-      if caps[cap_key] == nil then
+      local cap = caps[cap_key]
+      if cap == nil or cap == json.null() then
         error("client does not support " .. cap_key, 0)
       end
       return session:client_request(method, req_params)
@@ -191,7 +203,17 @@ function Session:handle_message(msg)
       if entry then
         entry.cancelled = true
         if entry.ctx then entry.ctx._cancelled = true end
+        -- if parked on a client request, cancel it and release the entry
+        for out_id, parked in pairs(self.pending_out) do
+          if parked == entry then
+            self.pending_out[out_id] = nil
+            self:notify("notifications/cancelled", { requestId = out_id })
+            self.inflight[entry.key] = nil
+            -- do not resume: the coroutine is abandoned; response already suppressed
+          end
+        end
       end
+      return
     elseif method == "notifications/initialized" then
       self.ready = true
     end
@@ -248,10 +270,16 @@ function Session:handle_message(msg)
     return
   end
 
-  local ctx = self:make_ctx(id, params)
+  local key = reqkey(id)
+  if self.inflight[key] then
+    self:queue(M.error_msg(id, -32600, "Duplicate request id: " .. tostring(id)))
+    return
+  end
+
+  local ctx = self:make_ctx(params)
   local entry = {
     id = id,
-    key = reqkey(id),
+    key = key,
     ctx = ctx,
     on_error = def.on_error,
     cancelled = false,
@@ -264,9 +292,13 @@ function Session:handle_message(msg)
 end
 
 function Session:feed(line)
-  local msg = json.decode(line)
-  if type(msg) ~= "table" then
+  local msg, decode_err = json.decode(line)
+  if msg == nil or msg == json.null() then
     self:queue(M.error_msg(json.null(), -32700, "Parse error"))
+    return self:take_output()
+  end
+  if type(msg) ~= "table" then
+    self:queue(M.error_msg(json.null(), -32600, "Invalid request"))
     return self:take_output()
   end
   if msg[1] ~= nil then
