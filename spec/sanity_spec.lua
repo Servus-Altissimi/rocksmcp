@@ -1,0 +1,8 @@
+describe("toolchain", function()
+  it("loads dkjson with null sentinel", function()
+    local json = require("dkjson")
+    assert.is_not_nil(json.null)
+    local d = json.decode("[1,null,2]", 1, json.null)
+    assert.equal(3, #d)
+  end)
+end)
