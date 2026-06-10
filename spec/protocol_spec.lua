@@ -155,6 +155,12 @@ describe("protocol lifecycle", function()
     assert.matches("yielded outside", r[1].error.message)
   end)
 
+  it("rejects null request ids", function()
+    local s = new_session()
+    local r = H.rpc(s, { jsonrpc = "2.0", id = json.null(), method = "ping" })
+    assert.equal(-32600, r[1].error.code)
+  end)
+
   it("cancelling a parked request cancels the outgoing client request", function()
     local s = protocol.new({
       info = { name = "t", version = "0" },

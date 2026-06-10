@@ -154,4 +154,15 @@ describe("resources", function()
         read = function() return "" end }
     end, "duplicate variable")
   end)
+
+  it("supports underscores in template variables", function()
+    local srv = mcp.server{ name = "s", version = "0" }
+    srv:resource_template{ uri_template = "d://u/{user_id}", name = "U",
+      read = function(uri, ctx, vars) return "user:" .. vars.user_id end }
+    local e = srv:engine()
+    H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/read",
+      params = { uri = "d://u/42" } })
+    assert.equal("user:42", r[1].result.contents[1].text)
+  end)
 end)

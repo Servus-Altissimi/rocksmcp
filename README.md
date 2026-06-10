@@ -39,7 +39,7 @@ Register with Claude Code: `claude mcp add my-server -- lua /path/to/server.lua`
 | `srv:resource{uri, name, mime?, description?, read}` | static resource; read `(uri, ctx) → string \| {text=} \| {blob=}` |
 | `srv:resource_template{uri_template, name, mime?, read}` | `{var}` templates; read gets `(uri, ctx, vars)` |
 | `srv:prompt{name, description?, args?, get}` | prompt; get `(args, ctx) → {messages=...}` |
-| `srv:completion(fn)` | argument completion; `fn(ref, argument, ctx) → values` |
+| `srv:completion(fn)` | argument completion; `fn(ref, argument, ctx, context?) → values` |
 | `srv:run()` | serve on stdio |
 | `srv:tools_changed() / resources_changed() / prompts_changed()` | list_changed notifications |
 | `srv:resource_updated(uri)` | notify subscribers |
@@ -71,6 +71,7 @@ Register with Claude Code: `claude mcp add my-server -- lua /path/to/server.lua`
 Raise `error("message", 0)` in handlers — tools get `isError` results, other
 handlers get JSON-RPC errors. Raise `error({code=-32602, message="..."}, 0)`
 for a specific JSON-RPC code.
+Tool arguments are passed to handlers as-decoded — validate inputs in your handler; the library does not enforce inputSchema.
 
 ## Development
 

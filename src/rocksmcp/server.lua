@@ -31,7 +31,7 @@ end
 -- later variables absorb the remainder (differs from greedy RFC 6570).
 function M.compile_template(tmpl)
   local names = {}
-  for n in tmpl:gmatch("{(%w+)}") do
+  for n in tmpl:gmatch("{([%w_]+)}") do
     names[#names + 1] = n
   end
   local seen = {}
@@ -42,7 +42,7 @@ function M.compile_template(tmpl)
     seen[n] = true
   end
   local escaped = tmpl:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1")
-  local pattern = "^" .. escaped:gsub("{%w+}", "(.-)") .. "$"
+  local pattern = "^" .. escaped:gsub("{[%w_]+}", "(.-)") .. "$"
   return pattern, names
 end
 
@@ -280,7 +280,7 @@ function M.build_methods(registry)
       if not registry.completion then
         error({ code = -32601, message = "Completions not supported" }, 0)
       end
-      local res = registry.completion(params.ref, params.argument, ctx)
+      local res = registry.completion(params.ref, params.argument, ctx, params.context)
       local values, total, has_more
       if type(res) == "table" and res.values ~= nil then
         values, total, has_more = res.values, res.total, res.hasMore

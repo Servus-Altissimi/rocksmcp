@@ -196,6 +196,11 @@ function Session:handle_message(msg)
   if params == json.null() then params = nil end
   params = params or {}
 
+  if id == json.null() then
+    self:queue(M.error_msg(json.null(), -32600, "Request id must not be null"))
+    return
+  end
+
   -- notifications
   if id == nil then
     if method == "notifications/cancelled" then

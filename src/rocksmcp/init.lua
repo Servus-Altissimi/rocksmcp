@@ -39,6 +39,7 @@ function mcp.server(opts)
       template_order = {},
       prompts = {}, prompt_order = {},
       completion = nil,
+      -- per-server (single session); move into Session for multi-session transports
       subscriptions = {},
     },
     _engine = nil,

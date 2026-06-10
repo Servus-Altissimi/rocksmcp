@@ -35,4 +35,15 @@ describe("schema", function()
     local e = S.enum({ "x", "y" }, "Choice")
     assert.same({ "x", "y" }, e.enum)
   end)
+
+  it("does not mutate caller tables", function()
+    local props = { who = S.str("Name") }
+    local req = { "who" }
+    local vals = { "x", "y" }
+    S.obj(props, req)
+    S.enum(vals)
+    assert.is_nil(getmetatable(props))
+    assert.is_nil(getmetatable(req))
+    assert.is_nil(getmetatable(vals))
+  end)
 end)
