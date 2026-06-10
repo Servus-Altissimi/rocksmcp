@@ -102,4 +102,33 @@ describe("prompts", function()
                  argument = { name = "x", value = "" } } })
     assert.equal(-32601, r[1].error.code)
   end)
+
+  it("does not mutate cached prompt handler results", function()
+    local cached = { messages = { mcp.user_text("hi") } }
+    local srv = mcp.server{ name = "s", version = "0" }
+    srv:prompt{ name = "c", description = "Reg desc", get = function() return cached end }
+    local e = srv:engine()
+    H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "prompts/get",
+      params = { name = "c" } })
+    assert.equal("Reg desc", r[1].result.description)
+    assert.is_nil(cached.description)
+    assert.is_nil(getmetatable(cached.messages))
+  end)
+
+  it("rejects non-table arguments", function()
+    local e = prompt_server():engine()
+    H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "prompts/get",
+      params = { name = "review", arguments = "bad" } })
+    assert.equal(-32602, r[1].error.code)
+    assert.matches("must be a table", r[1].error.message)
+  end)
+
+  it("rejects non-function get at registration", function()
+    local srv = mcp.server{ name = "s", version = "0" }
+    assert.error(function()
+      srv:prompt{ name = "p", get = true }
+    end)
+  end)
 end)

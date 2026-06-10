@@ -254,17 +254,24 @@ function M.build_methods(registry)
       end
       local args = params.arguments
       if args == json.null() or args == nil then args = {} end
+      if type(args) ~= "table" then
+        error({ code = -32602, message = "arguments must be a table" }, 0)
+      end
       for _, a in ipairs(p.args or {}) do
         if a.required and args[a.name] == nil then
           error({ code = -32602, message = "Missing required argument: " .. a.name }, 0)
         end
       end
       local res = p.get(args, ctx)
-      if type(res) ~= "table" or res.messages == nil then
+      if type(res) ~= "table" or type(res.messages) ~= "table" then
         error("prompt get handler must return { messages = ... }", 0)
       end
-      res.description = res.description or p.description
-      return res
+      local msgs = {}
+      for i = 1, #res.messages do msgs[i] = res.messages[i] end
+      return {
+        description = res.description or p.description,
+        messages = json.array(msgs),
+      }
     end,
   }
 

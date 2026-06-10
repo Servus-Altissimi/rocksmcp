@@ -86,8 +86,8 @@ function Server:resource_template(def)
 end
 
 function Server:prompt(def)
-  assert(type(def) == "table" and def.name and def.get,
-    "prompt requires name, get")
+  assert(type(def) == "table" and type(def.name) == "string" and def.name ~= ""
+    and type(def.get) == "function", "prompt requires name (string) and get (function)")
   assert(not self.registry.prompts[def.name],
     "prompt already registered: " .. tostring(def.name))
   self.registry.prompts[def.name] = def
