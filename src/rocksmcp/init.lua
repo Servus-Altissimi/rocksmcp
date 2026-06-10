@@ -28,8 +28,8 @@ local Server = {}
 Server.__index = Server
 
 function mcp.server(opts)
-  assert(type(opts) == "table" and opts.name and opts.version,
-    "mcp.server requires { name = ..., version = ... }")
+  assert(type(opts) == "table" and type(opts.name) == "string" and opts.name ~= ""
+    and opts.version, "mcp.server requires { name = ..., version = ... }")
   return setmetatable({
     info = { name = opts.name, version = opts.version },
     instructions = opts.instructions,
@@ -45,9 +45,10 @@ function mcp.server(opts)
   }, Server)
 end
 
+-- After a client is connected, call srv:tools_changed() if you add tools late.
 function Server:tool(def)
-  assert(type(def) == "table" and def.name and def.handler and def.input,
-    "tool requires name, input, handler")
+  assert(type(def) == "table" and type(def.name) == "string" and def.name ~= ""
+    and def.handler and def.input, "tool requires name (string), input, handler")
   assert(not self.registry.tools[def.name],
     "tool already registered: " .. tostring(def.name))
   self.registry.tools[def.name] = def

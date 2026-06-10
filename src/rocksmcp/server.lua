@@ -10,7 +10,8 @@ function M.paginate(list, cursor)
   local start = 1
   if cursor ~= nil then
     start = tonumber(cursor)
-    if start == nil or start < 1 or start % 1 ~= 0 then
+    if start == nil or start < 1 or start ~= math.floor(start)
+        or tostring(math.floor(start)) ~= cursor then
       error({ code = -32602, message = "Invalid cursor" }, 0)
     end
   end

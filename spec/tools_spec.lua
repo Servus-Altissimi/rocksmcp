@@ -136,4 +136,23 @@ describe("tools", function()
         input = mcp.schema.obj({}, {}), handler = function() end }
     end, "already registered")
   end)
+
+  it("rejects non-canonical cursors", function()
+    local srv = demo_server()
+    local e = srv:engine()
+    H.init(e)
+    for _, bad in ipairs({ "1e10", "51.0", "051", "-1", "0" }) do
+      local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/list",
+        params = { cursor = bad } })
+      assert.equal(-32602, r[1].error.code, "cursor should be rejected: " .. bad)
+    end
+  end)
+
+  it("rejects non-string tool names", function()
+    local srv = demo_server()
+    assert.error(function()
+      srv:tool{ name = 123, description = "d",
+        input = mcp.schema.obj({}, {}), handler = function() end }
+    end)
+  end)
 end)
