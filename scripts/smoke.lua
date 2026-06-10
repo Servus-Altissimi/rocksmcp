@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- Smoke test: exercises the coroutine park/resume path (5.1-sensitive)
 -- Usage: lua scripts/smoke.lua
-package.path = "./src/?.lua;./src/?/init.lua;./.rocks/share/lua/5.4/?/init.lua;"
+package.path = "./src/?.lua;./src/?/init.lua;./.rocks/share/lua/5.4/?.lua;"
   .. "./.rocks/share/lua/5.4/?/init.lua;" .. package.path
 
 local mcp = require("rocksmcp")
