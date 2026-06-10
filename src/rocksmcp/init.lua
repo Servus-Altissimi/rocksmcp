@@ -57,6 +57,27 @@ function Server:tool(def)
   return self
 end
 
+function Server:resource(def)
+  assert(type(def) == "table" and def.uri and def.name and def.read,
+    "resource requires uri, name, read")
+  assert(not self.registry.resources[def.uri],
+    "resource already registered: " .. tostring(def.uri))
+  self.registry.resources[def.uri] = def
+  local order = self.registry.resource_order
+  order[#order + 1] = def.uri
+  return self
+end
+
+function Server:resource_template(def)
+  assert(type(def) == "table" and def.uri_template and def.name and def.read,
+    "resource_template requires uri_template, name, read")
+  local server_mod = require("rocksmcp.server")
+  def.pattern, def.var_names = server_mod.compile_template(def.uri_template)
+  local order = self.registry.template_order
+  order[#order + 1] = def
+  return self
+end
+
 function Server:completion(fn)
   assert(type(fn) == "function", "completion requires a function")
   self.registry.completion = fn
