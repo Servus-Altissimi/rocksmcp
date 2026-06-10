@@ -85,6 +85,17 @@ function Server:resource_template(def)
   return self
 end
 
+function Server:prompt(def)
+  assert(type(def) == "table" and def.name and def.get,
+    "prompt requires name, get")
+  assert(not self.registry.prompts[def.name],
+    "prompt already registered: " .. tostring(def.name))
+  self.registry.prompts[def.name] = def
+  local order = self.registry.prompt_order
+  order[#order + 1] = def.name
+  return self
+end
+
 function Server:completion(fn)
   assert(type(fn) == "function", "completion requires a function")
   self.registry.completion = fn

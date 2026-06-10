@@ -221,6 +221,74 @@ function M.build_methods(registry)
     end,
   }
 
+  methods["prompts/list"] = {
+    run = function(params)
+      local descs = {}
+      for _, name in ipairs(registry.prompt_order) do
+        local p = registry.prompts[name]
+        local args
+        if p.args and #p.args > 0 then
+          args = {}
+          for i, a in ipairs(p.args) do
+            args[i] = {
+              name = a.name, description = a.description,
+              required = a.required or nil,
+            }
+          end
+          args = json.array(args)
+        end
+        descs[#descs + 1] = {
+          name = p.name, description = p.description, arguments = args,
+        }
+      end
+      local page, nxt = M.paginate(descs, params.cursor)
+      return { prompts = json.array(page), nextCursor = nxt }
+    end,
+  }
+
+  methods["prompts/get"] = {
+    run = function(params, ctx)
+      local p = registry.prompts[params.name]
+      if not p then
+        error({ code = -32602, message = "Unknown prompt: " .. tostring(params.name) }, 0)
+      end
+      local args = params.arguments
+      if args == json.null() or args == nil then args = {} end
+      for _, a in ipairs(p.args or {}) do
+        if a.required and args[a.name] == nil then
+          error({ code = -32602, message = "Missing required argument: " .. a.name }, 0)
+        end
+      end
+      local res = p.get(args, ctx)
+      if type(res) ~= "table" or res.messages == nil then
+        error("prompt get handler must return { messages = ... }", 0)
+      end
+      res.description = res.description or p.description
+      return res
+    end,
+  }
+
+  methods["completion/complete"] = {
+    run = function(params, ctx)
+      if not registry.completion then
+        error({ code = -32601, message = "Completions not supported" }, 0)
+      end
+      local res = registry.completion(params.ref, params.argument, ctx)
+      local values, total, has_more
+      if type(res) == "table" and res.values ~= nil then
+        values, total, has_more = res.values, res.total, res.hasMore
+      else
+        values = res or {}
+      end
+      local capped = {}
+      for i = 1, math.min(#values, 100) do
+        capped[i] = values[i]
+      end
+      if has_more == nil and #values > 100 then has_more = true end
+      return { completion = { values = json.array(capped), total = total, hasMore = has_more } }
+    end,
+  }
+
   return methods
 end
 
