@@ -169,3 +169,49 @@ describe("tool result shaping", function()
     assert.equal("{}", r[1].result.content[1].text)
   end)
 end)
+
+describe("tool annotations and structured output", function()
+  it("emits annotations and outputSchema in tools/list when provided", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{
+      name = "lookup", description = "read only",
+      input = mcp.schema.obj({}, {}),
+      annotations = { readOnlyHint = true, title = "Lookup" },
+      output_schema = mcp.schema.obj({ value = mcp.schema.str() }, { "value" }),
+      handler = function() return { value = "x" } end,
+    }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/list" })
+    local t = r[1].result.tools[1]
+    assert.is_true(t.annotations.readOnlyHint)
+    assert.equal("Lookup", t.annotations.title)
+    assert.equal("object", t.outputSchema.type)
+  end)
+
+  it("omits annotations and outputSchema when not provided", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{ name = "plain", description = "p", input = mcp.schema.obj({}, {}),
+      handler = function() return "ok" end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/list" })
+    local t = r[1].result.tools[1]
+    assert.is_nil(t.annotations)
+    assert.is_nil(t.outputSchema)
+  end)
+
+  it("passes a handler's structuredContent through unchanged", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{ name = "s", description = "s", input = mcp.schema.obj({}, {}),
+      handler = function()
+        return {
+          content = json.array({ { type = "text", text = "12.3" } }),
+          structuredContent = { temperature = 12.3 },
+        }
+      end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/call",
+      params = { name = "s", arguments = json.object({}) } })
+    assert.equal(12.3, r[1].result.structuredContent.temperature)
+    assert.equal("12.3", r[1].result.content[1].text)
+  end)
+end)

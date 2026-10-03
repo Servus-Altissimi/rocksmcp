@@ -124,6 +124,7 @@ function M.build_methods(registry)
         local t = registry.tools[name]
         descs[#descs + 1] = {
           name = t.name, description = t.description, inputSchema = t.input,
+          annotations = t.annotations, outputSchema = t.output_schema,
         }
       end
       local page, nxt = M.paginate(descs, params.cursor)
