@@ -166,3 +166,51 @@ describe("resources", function()
     assert.equal("user:42", r[1].result.contents[1].text)
   end)
 end)
+
+describe("resource edge cases", function()
+  local function srv_with(read_a)
+    local srv = mcp.server{ name = "r", version = "0" }
+    srv:resource{ uri = "demo://a", name = "A", read = read_a }
+    srv:resource_template{ uri_template = "demo://t/{p}", name = "T",
+      read = function(uri, ctx, vars) return "t:" .. vars.p end }
+    local e = srv:engine()
+    H.init(e)
+    return e
+  end
+
+  it("errors when a resource read returns an unrecognized table", function()
+    local e = srv_with(function() return { weird = true } end)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/read",
+      params = { uri = "demo://a" } })
+    assert.is_table(r[1].error)
+    assert.matches("unrecognized", r[1].error.message)
+  end)
+
+  it("rejects a resources/read with a non-string uri", function()
+    local e = srv_with(function() return "a" end)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/read",
+      params = { uri = json.null() } })
+    assert.equal(-32602, r[1].error.code)
+  end)
+
+  it("subscribes to a template-matched uri", function()
+    local e = srv_with(function() return "a" end)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/subscribe",
+      params = { uri = "demo://t/readme" } })
+    assert.is_nil(r[1].error)
+  end)
+
+  it("rejects a subscribe to an unknown uri", function()
+    local e = srv_with(function() return "a" end)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/subscribe",
+      params = { uri = "demo://missing" } })
+    assert.equal(-32002, r[1].error.code)
+  end)
+
+  it("rejects an unsubscribe with a non-string uri", function()
+    local e = srv_with(function() return "a" end)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "resources/unsubscribe",
+      params = { uri = json.null() } })
+    assert.equal(-32602, r[1].error.code)
+  end)
+end)

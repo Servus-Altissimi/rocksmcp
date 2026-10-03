@@ -156,3 +156,16 @@ describe("tools", function()
     end)
   end)
 end)
+
+describe("tool result shaping", function()
+  it("encodes a nil tool return as an empty JSON object", function()
+    local srv = mcp.server{ name = "d", version = "0" }
+    srv:tool{ name = "void", description = "returns nothing",
+      input = mcp.schema.obj({}, {}), handler = function() return nil end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/call",
+      params = { name = "void", arguments = json.object({}) } })
+    assert.equal("text", r[1].result.content[1].type)
+    assert.equal("{}", r[1].result.content[1].text)
+  end)
+end)

@@ -57,3 +57,17 @@ describe("cjson adapter", function()
     assert.is_string(cj.encode({ a = 1 }))
   end)
 end)
+
+describe("cjson adapter details", function()
+  local ok = pcall(require, "cjson")
+  if not ok then
+    pending("lua-cjson not installed", function() end)
+    return
+  end
+  it("tags empty arrays, builds objects, and reports decode errors", function()
+    local cj = require("rocksmcp.json.cjson")
+    assert.equal("[]", cj.encode(cj.array({})))
+    assert.is_table(cj.object({}))
+    assert.is_nil(cj.decode("{bad"))
+  end)
+end)

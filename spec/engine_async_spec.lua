@@ -165,3 +165,15 @@ describe("engine async", function()
     end, "only allowed inside")
   end)
 end)
+
+describe("engine async roots", function()
+  it("parks on ctx.roots and returns the client roots", function()
+    local s = session_with(function(_, ctx) return ctx.roots() end)
+    local outs = H.rpc(s, { jsonrpc = "2.0", id = 2, method = "test/run" })
+    assert.equal("roots/list", outs[1].method)
+    local rid = outs[1].id
+    local fin = H.rpc(s, { jsonrpc = "2.0", id = rid,
+      result = { roots = { { uri = "file:///x", name = "x" } } } })
+    assert.equal("file:///x", fin[1].result[1].uri)
+  end)
+end)

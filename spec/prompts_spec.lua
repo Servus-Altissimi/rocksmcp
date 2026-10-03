@@ -132,3 +132,28 @@ describe("prompts", function()
     end)
   end)
 end)
+
+describe("prompt and completion edge cases", function()
+  it("errors when a prompt get returns no messages table", function()
+    local srv = mcp.server{ name = "p", version = "0" }
+    srv:prompt{ name = "bad", get = function() return { nope = true } end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "prompts/get",
+      params = { name = "bad", arguments = json.object({}) } })
+    assert.is_table(r[1].error)
+    assert.matches("messages", r[1].error.message)
+  end)
+
+  it("passes completion values, total and hasMore in table form", function()
+    local srv = mcp.server{ name = "p", version = "0" }
+    srv:prompt{ name = "x", get = function() return { messages = json.array({}) } end }
+    srv:completion(function() return { values = { "a", "b" }, total = 2, hasMore = false } end)
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "completion/complete",
+      params = { ref = { type = "ref/prompt", name = "x" }, argument = { name = "q" } } })
+    local c = r[1].result.completion
+    assert.same({ "a", "b" }, c.values)
+    assert.equal(2, c.total)
+    assert.equal(false, c.hasMore)
+  end)
+end)
