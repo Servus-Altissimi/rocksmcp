@@ -35,7 +35,7 @@ Register with Claude Code: `claude mcp add my-server -- lua /path/to/server.lua`
 | Call | Purpose |
 |---|---|
 | `mcp.server{name, version, instructions?}` | create a server |
-| `srv:tool{name, description, input, handler}` | register a tool; handler `(args, ctx) → string \| table \| {content=...}` |
+| `srv:tool{name, description, input, handler, annotations?, output_schema?}` | register a tool; handler `(args, ctx) → string \| table \| {content=..., structuredContent?=...}`. `annotations` (e.g. `{readOnlyHint=true}`) and `output_schema` appear in `tools/list` |
 | `srv:resource{uri, name, mime?, description?, read}` | static resource; read `(uri, ctx) → string \| {text=} \| {blob=}` |
 | `srv:resource_template{uri_template, name, mime?, read}` | `{var}` templates; read gets `(uri, ctx, vars)` |
 | `srv:prompt{name, description?, args?, get}` | prompt; get `(args, ctx) → {messages=...}` |
