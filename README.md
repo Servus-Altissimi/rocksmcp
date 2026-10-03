@@ -83,7 +83,3 @@ scripts/compat.sh      # smoke under luajit / other interpreters
 ```
 
 Examples: `examples/echo.lua`, `examples/fileserver.lua`.
-
-## License
-
-MIT, see [LICENSE](LICENSE).
