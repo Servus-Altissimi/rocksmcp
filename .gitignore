@@ -2,3 +2,5 @@
 
 luacov.stats.out
 luacov.report.out
+.env
+*.src.rock

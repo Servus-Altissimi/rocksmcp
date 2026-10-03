@@ -15,7 +15,7 @@ fi
 GATE="${COVERAGE_GATE:-99}"
 rm -f luacov.stats.out luacov.report.out
 "$BUSTED" --coverage "$@"
-"$LUACOV"
+"$LUACOV" src
 grep -E "^(File|src/|Total)" luacov.report.out
 total=$(awk '/^Total/{gsub("%","",$NF); print $NF}' luacov.report.out)
 awk -v t="$total" -v g="$GATE" \
