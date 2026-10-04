@@ -10,7 +10,7 @@
 
 **Critical 5.1 constraint:** plain Lua 5.1 cannot `coroutine.yield` across a `pcall` boundary. Therefore handler errors are caught via `coroutine.resume` returning `false` — NEVER wrap handlers in `pcall` inside the coroutine body.
 
-**Conventions:** all library errors `error(msg, 0)` (or `error({code=..., message=...}, 0)` for JSON-RPC-coded errors). Tests run via `scripts/test.sh` from repo root. All test/run commands assume repo root `/home/user/projects/rocksmcp`. Never add Claude attribution trailers to commits.
+**Conventions:** all library errors `error(msg, 0)` (or `error({code=..., message=...}, 0)` for JSON-RPC-coded errors). Tests run via `scripts/test.sh` from repo root. All test/run commands assume repo root `/home/user/projects/mcp/rocksmcp`. Never add Claude attribution trailers to commits.
 
 ---
 
@@ -2054,7 +2054,7 @@ return srv
 - [ ] **Step 7: Manual stdio smoke test**
 
 ```bash
-cd /home/user/projects/rocksmcp && printf '%s\n' \
+cd /home/user/projects/mcp/rocksmcp && printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"echo","arguments":{"text":"hi"}}}' \
@@ -2064,7 +2064,7 @@ cd /home/user/projects/rocksmcp && printf '%s\n' \
 Note: `eval` inside a pipeline doesn't work like that — run as two commands instead:
 
 ```bash
-cd /home/user/projects/rocksmcp
+cd /home/user/projects/mcp/rocksmcp
 eval "$(luarocks --lua-version 5.4 --tree .rocks path)"
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
@@ -2162,7 +2162,7 @@ done
 
 Expected output includes `--- luajit` then `Lua 5.1 (LuaJIT ...): smoke OK`, plus lua5.3/lua5.4 lines, all `smoke OK`. Any failure under luajit = a 5.1 compat bug in src/ — fix it (typical culprits: pcall-across-yield, `table.unpack`, goto).
 
-- [ ] **Step 4: Write `LICENSE`** — MIT, same text as `/home/user/projects/ankimcp/LICENSE` (copy it: `cp /home/user/projects/ankimcp/LICENSE LICENSE`).
+- [ ] **Step 4: Write `LICENSE`** — MIT, same text as `/home/user/projects/mcp/ankimcp/LICENSE` (copy it: `cp /home/user/projects/mcp/ankimcp/LICENSE LICENSE`).
 
 - [ ] **Step 5: Write `README.md`**
 
