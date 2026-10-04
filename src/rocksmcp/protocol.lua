@@ -56,7 +56,14 @@ function M.new(opts)
 end
 
 function Session:queue(msg)
-  self.out[#self.out + 1] = json.encode(msg)
+  local ok, line = pcall(json.encode, msg)
+  if not ok or line == nil then
+    -- a response still owes its caller an answer; anything else is dropped
+    if msg.id == nil or msg.method ~= nil then return end
+    line = json.encode(M.error_msg(msg.id, -32603,
+      "result is not JSON-encodable: " .. tostring(line)))
+  end
+  self.out[#self.out + 1] = line
 end
 
 function Session:notify(method, params)

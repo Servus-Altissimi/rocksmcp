@@ -214,4 +214,61 @@ describe("tool annotations and structured output", function()
     assert.equal(12.3, r[1].result.structuredContent.temperature)
     assert.equal("12.3", r[1].result.content[1].text)
   end)
+
+  it("adds text content when a handler returns only structuredContent", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{ name = "s", description = "s", input = mcp.schema.obj({}, {}),
+      handler = function() return { structuredContent = { temperature = 12.3 } } end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/call",
+      params = { name = "s", arguments = json.object({}) } })
+    assert.equal(12.3, r[1].result.structuredContent.temperature)
+    assert.same({ temperature = 12.3 }, json.decode(r[1].result.content[1].text))
+  end)
+
+  it("returns a plain table as structuredContent when the tool declares output_schema", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{ name = "s", description = "s", input = mcp.schema.obj({}, {}),
+      output_schema = mcp.schema.obj({ value = mcp.schema.str() }, { "value" }),
+      handler = function() return { value = "x" } end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/call",
+      params = { name = "s", arguments = json.object({}) } })
+    assert.equal("x", r[1].result.structuredContent.value)
+    assert.same({ value = "x" }, json.decode(r[1].result.content[1].text))
+  end)
+
+  it("keeps plain table results as text only without output_schema", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{ name = "s", description = "s", input = mcp.schema.obj({}, {}),
+      handler = function() return { value = "x" } end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/call",
+      params = { name = "s", arguments = json.object({}) } })
+    assert.is_nil(r[1].result.structuredContent)
+  end)
+end)
+
+describe("unencodable results", function()
+  it("answers -32603 instead of crashing when a result cannot be encoded", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    srv:tool{ name = "f", description = "f", input = mcp.schema.obj({}, {}),
+      handler = function() return { content = json.array({ { type = "text", text = print } }) } end }
+    local e = srv:engine(); H.init(e)
+    local r = H.rpc(e, { jsonrpc = "2.0", id = 2, method = "tools/call",
+      params = { name = "f", arguments = json.object({}) } })
+    assert.equal(2, r[1].id)
+    assert.equal(-32603, r[1].error.code)
+    local after = H.rpc(e, { jsonrpc = "2.0", id = 3, method = "ping" })
+    assert.equal(3, after[1].id)
+  end)
+
+  it("drops an unencodable notification without breaking the session", function()
+    local srv = mcp.server{ name = "a", version = "0" }
+    local e = srv:engine(); H.init(e)
+    e:notify("notifications/message", { data = print })
+    assert.same({}, e:take_output())
+    local after = H.rpc(e, { jsonrpc = "2.0", id = 3, method = "ping" })
+    assert.equal(3, after[1].id)
+  end)
 end)

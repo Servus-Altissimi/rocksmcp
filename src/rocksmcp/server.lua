@@ -89,9 +89,15 @@ function M.capabilities(registry)
   return caps
 end
 
-local function shape_tool_result(res)
-  if type(res) == "table" and res.content ~= nil then
+local function shape_tool_result(res, tool)
+  if type(res) == "table" and (res.content ~= nil or res.structuredContent ~= nil) then
+    if res.content == nil then
+      res.content = json.array({ { type = "text", text = json.encode(res.structuredContent) } })
+    end
     return res
+  end
+  if tool.output_schema and type(res) == "table" then
+    return { content = json.array({ { type = "text", text = json.encode(res) } }), structuredContent = res }
   end
   local text
   if type(res) == "string" then
@@ -140,7 +146,7 @@ function M.build_methods(registry)
       end
       local args = params.arguments
       if args == json.null() or args == nil then args = {} end
-      return shape_tool_result(tool.handler(args, ctx))
+      return shape_tool_result(tool.handler(args, ctx), tool)
     end,
     on_error = tool_error,
   }
