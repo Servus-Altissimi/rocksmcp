@@ -3,7 +3,7 @@
 Write [MCP (Model Context Protocol)](https://modelcontextprotocol.io) servers
 in Lua. Full server-side protocol: tools, resources (+templates,
 subscriptions), prompts, completion, logging, progress, cancellation, and
-client interaction (sampling, elicitation, roots) — over stdio, with a
+client interaction (sampling, elicitation, roots), over stdio, with a
 coroutine engine and no event-loop dependency.
 
 Works on Lua 5.1+ and LuaJIT. JSON codec is pluggable (dkjson default,
@@ -68,10 +68,10 @@ Register with Claude Code: `claude mcp add my-server -- lua /path/to/server.lua`
 
 ## Errors
 
-Raise `error("message", 0)` in handlers — tools get `isError` results, other
+Raise `error("message", 0)` in handlers, tools get `isError` results, other
 handlers get JSON-RPC errors. Raise `error({code=-32602, message="..."}, 0)`
 for a specific JSON-RPC code.
-Tool arguments are passed to handlers as-decoded — validate inputs in your handler; the library does not enforce inputSchema.
+Tool arguments are passed to handlers as-decoded: validate inputs in your handler; the library does not enforce inputSchema.
 
 ## Development
 
