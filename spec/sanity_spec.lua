@@ -6,3 +6,17 @@ describe("toolchain", function()
     assert.equal(3, #d)
   end)
 end)
+
+describe("rockspec", function()
+  it("lists every module under src", function()
+    local f = assert(io.popen("ls rocksmcp-*.rockspec"))
+    local path = f:read("*l")
+    f:close()
+    local spec = assert(io.open(path)):read("*a")
+    local p = assert(io.popen("find src -name '*.lua'"))
+    for file in p:lines() do
+      assert.truthy(spec:find('"' .. file .. '"', 1, true), file .. " missing from " .. path)
+    end
+    p:close()
+  end)
+end)
