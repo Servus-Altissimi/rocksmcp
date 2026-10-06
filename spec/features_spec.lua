@@ -179,3 +179,24 @@ describe("testing client", function()
     assert.has_error(function() c:call("nope") end)
   end)
 end)
+
+describe("default diagnostics", function()
+  it("write to stderr", function()
+    local protocol = require("rocksmcp.protocol")
+    local real = io.stderr
+    local got = {}
+    io.stderr = { write = function(_, ...) for _, s in ipairs({ ... }) do got[#got + 1] = s end end, flush = function() end }
+    protocol.diagnostics("hello")
+    io.stderr = real
+    assert.equal("rocksmcp: hello\n", table.concat(got))
+  end)
+end)
+
+describe("testing client without a response", function()
+  it("raises naming the method", function()
+    local c = testing.client(mcp.server{ name = "t", version = "0" })
+    c.session.feed = function() return {} end
+    assert.has_error(function() c:request("ping") end,
+      "no response to ping (id 2); did the handler yield outside a client request?")
+  end)
+end)

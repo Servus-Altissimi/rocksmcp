@@ -77,3 +77,45 @@ describe("registration", function()
     end))
   end)
 end)
+
+describe("registration checks", function()
+  local function err_of(def)
+    local ok, e = pcall(mcp.server{ name = "t", version = "0" }.tool, mcp.server{ name = "t", version = "0" }, def)
+    assert.is_false(ok)
+    return e
+  end
+
+  it("names every wrong field type", function()
+    local e = err_of{ name = "x", description = 1, handler = function() end,
+      output_schema = S.str(), annotations = "ro" }
+    assert.matches("description must be a string", e)
+    assert.matches("output_schema must be an object schema", e)
+    assert.matches("annotations must be a table", e)
+    assert.matches("actions must be a table", err_of{ name = "x", description = "d", actions = {} })
+  end)
+
+  it("rejects a non-table server or tool", function()
+    assert.matches("mcp.server takes a table", select(2, pcall(mcp.server, "x")))
+    local s = mcp.server{ name = "t", version = "0" }
+    assert.matches("srv:tool takes a table", select(2, pcall(s.tool, s, "x")))
+  end)
+end)
+
+describe("actions without validation", function()
+  local testing = require("rocksmcp.testing")
+
+  it("sorts the enum, keeps required fields and names a bad action", function()
+    local srv = mcp.server{ name = "t", version = "0" }
+    srv:tool{ name = "n", description = "d",
+      input = S.obj({ id = S.str() }, { "id" }),
+      actions = { b = function() return "b" end, a = function() return "a" end } }
+    local c = testing.client(srv)
+    local t = c:tool("n")
+    assert.same({ "a", "b" }, t.inputSchema.properties.action.enum)
+    assert.same({ "action", "id" }, t.inputSchema.required)
+    local r = c:call("n", { action = "zap", id = "1" })
+    assert.is_true(r.isError)
+    assert.equal("action must be one of: a, b (got zap)", r.text)
+    assert.is_nil(c:tool("missing"))
+  end)
+end)
