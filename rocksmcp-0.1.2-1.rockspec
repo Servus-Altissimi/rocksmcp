@@ -1,8 +1,8 @@
 package = "rocksmcp"
-version = "0.1.1-1"
+version = "0.1.2-1"
 source = {
   url = "git+https://github.com/Servus-Altissimi/rocksmcp.git",
-  tag = "v0.1.1",
+  tag = "v0.1.2",
 }
 description = {
   summary = "Write MCP (Model Context Protocol) servers in Lua",
@@ -24,6 +24,8 @@ build = {
     ["rocksmcp.protocol"] = "src/rocksmcp/protocol.lua",
     ["rocksmcp.server"] = "src/rocksmcp/server.lua",
     ["rocksmcp.schema"] = "src/rocksmcp/schema.lua",
+    ["rocksmcp.testing"] = "src/rocksmcp/testing.lua",
     ["rocksmcp.transport.stdio"] = "src/rocksmcp/transport/stdio.lua",
   },
+  copy_directories = { "doc" },
 }
