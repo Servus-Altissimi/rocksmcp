@@ -42,8 +42,12 @@ describe("engine async", function()
 
   it("strips lua location prefixes from level-1 errors", function()
     local s = session_with(function() error("plain") end)
+    local said
+    local prev = require("rocksmcp").set_diagnostics(function(m) said = m end)
     local r = H.rpc(s, { jsonrpc = "2.0", id = 2, method = "test/run" })
+    require("rocksmcp").set_diagnostics(prev)
     assert.equal("plain", r[1].error.message)
+    assert.matches("^test/run failed: ", said)
   end)
 
   it("parks on ctx.sample and resumes with the client response", function()

@@ -18,6 +18,18 @@ function M.error_msg(id, code, message, data)
   return { jsonrpc = "2.0", id = id, error = { code = code, message = message, data = data } }
 end
 
+-- where crash tracebacks and registration warnings go; never to the client
+function M.diagnostics(message)
+  io.stderr:write("rocksmcp: ", message, "\n")
+  io.stderr:flush()
+end
+
+-- an error raised with a position (error("x") or a runtime fault) is a bug
+-- worth a traceback; error("x", 0) and error({ code = ... }) are deliberate
+local function crashed(e)
+  return type(e) == "string" and e:match("^.-%.lua:%d+: ") ~= nil
+end
+
 -- strip "path/to/file.lua:NN: " prefixes from handler errors
 function M.clean_err(e)
   if type(e) == "string" then
@@ -104,6 +116,9 @@ function Session:step(entry, ...)
     if res == nil then res = json.object({}) end
     self:queue(M.result_msg(entry.id, res))
   else
+    if crashed(res) then
+      M.diagnostics(("%s failed: %s"):format(entry.label or "request", debug.traceback(entry.co, res)))
+    end
     local handler = entry.on_error or default_on_error
     self:queue(handler(entry.id, M.clean_err(res)))
   end
@@ -292,6 +307,7 @@ function Session:handle_message(msg)
   local entry = {
     id = id,
     key = key,
+    label = def.label and def.label(params) or method,
     ctx = ctx,
     on_error = def.on_error,
     cancelled = false,

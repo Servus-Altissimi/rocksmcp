@@ -42,4 +42,22 @@ assert(outs[1].method == "sampling/createMessage", "expected sampling request")
 local fin = feed({ jsonrpc = "2.0", id = outs[1].id, result = { text = "ok" } })
 assert(fin[1].result.content[1].text == "client said: ok", "resume failed")
 
+-- 0.1.2 surface: actions, input validation, mcp.result, size cap, testing client
+local S = mcp.schema
+local v = mcp.server{ name = "v", version = "0", validate_input = true, max_result_bytes = 64 }
+v:tool{
+  name = "notes", description = "Notes",
+  input = S.obj({ ids = S.arr(S.int(), "Ids", { max_items = 2 }), q = S.str("Q", { max_length = 3 }) }),
+  actions = {
+    get = function(args) return mcp.result{ content = { mcp.text("got " .. #args.ids) } } end,
+    dump = function() return string.rep("x", 100) end,
+  },
+}
+local c = require("rocksmcp.testing").client(v)
+assert(c:call("notes", { action = "get", ids = { 1, 2 } }).text == "got 2", "actions/result failed")
+local bad = c:call("notes", { action = "get", ids = { 1, 2, 3 }, q = "\195\169\195\169\195\169\195\169" })
+assert(bad.isError and bad.text:find("at most 2 items") and bad.text:find("at most 3 characters %(got 4%)"),
+  "validation failed: " .. bad.text)
+assert(c:call("notes", { action = "dump" }).text:find("over this server's limit"), "size cap failed")
+
 print(_VERSION .. (jit and (" (" .. jit.version .. ")") or "") .. ": smoke OK")

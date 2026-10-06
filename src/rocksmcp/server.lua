@@ -1,5 +1,6 @@
 local protocol = require("rocksmcp.protocol")
 local json = require("rocksmcp.json")
+local schema = require("rocksmcp.schema")
 
 local M = {}
 
@@ -89,25 +90,68 @@ function M.capabilities(registry)
   return caps
 end
 
+-- tables built by mcp.result; weak so marked results can still be collected
+local marked = setmetatable({}, { __mode = "k" })
+
+function M.mark_result(r)
+  marked[r] = true
+  return r
+end
+
+local RESULT_KEYS = { content = true, structuredContent = true, isError = true, _meta = true }
+
+-- before mcp.result existed a handler returned { content = ... } raw; keep
+-- that working, but only for a table with nothing but result fields whose
+-- content (if any) really is a list of blocks
+local function raw_result(res)
+  if res.content == nil and res.structuredContent == nil then return false end
+  for k in pairs(res) do
+    if not RESULT_KEYS[k] then return false end
+  end
+  local c = res.content
+  return c == nil or (type(c) == "table" and type(c[1]) == "table" and type(c[1].type) == "string")
+end
+
+local function text_result(text, is_error)
+  return { content = json.array({ { type = "text", text = text } }), isError = is_error or nil }
+end
+
 local function shape_tool_result(res, tool)
-  if type(res) == "table" and (res.content ~= nil or res.structuredContent ~= nil) then
+  if type(res) == "table" and (marked[res] or raw_result(res)) then
     if res.content == nil then
-      res.content = json.array({ { type = "text", text = json.encode(res.structuredContent) } })
+      res.content = json.array({ { type = "text", text = json.encode(res.structuredContent or json.object({})) } })
     end
     return res
   end
   if tool.output_schema and type(res) == "table" then
     return { content = json.array({ { type = "text", text = json.encode(res) } }), structuredContent = res }
   end
-  local text
-  if type(res) == "string" then
-    text = res
-  elseif res == nil then
-    text = json.encode(json.object({}))
-  else
-    text = json.encode(res)
+  if type(res) == "string" then return text_result(res) end
+  if res == nil then return text_result(json.encode(json.object({}))) end
+  return text_result(json.encode(res))
+end
+
+local function result_bytes(res)
+  local n = 0
+  for _, block in ipairs(res.content or {}) do
+    if type(block) == "table" then n = n + #(block.text or block.data or "") end
   end
-  return { content = json.array({ { type = "text", text = text } }) }
+  if res.structuredContent ~= nil then n = n + #json.encode(res.structuredContent) end
+  return n
+end
+
+local function too_big(res, cap)
+  local n = result_bytes(res)
+  if n <= cap then return nil end
+  return text_result(("Result is %d bytes, over this server's limit of %d. Ask for less: "
+    .. "a smaller limit or page, a narrower filter or date range, or fewer fields."):format(n, cap), true)
+end
+
+local function invalid(tool, args)
+  local ok, problems = schema.validate(tool.input, args)
+  if ok then return nil end
+  return text_result(("Invalid arguments for %s:\n- %s\nNothing was done. Fix the arguments and call again."):format(
+    tool.name, table.concat(problems, "\n- ")), true)
 end
 
 local function tool_error(id, err)
@@ -146,9 +190,17 @@ function M.build_methods(registry)
       end
       local args = params.arguments
       if args == json.null() or args == nil then args = {} end
-      return shape_tool_result(tool.handler(args, ctx), tool)
+      local check = tool.validate
+      if check == nil then check = registry.validate_input end
+      if check then
+        local bad = invalid(tool, args)
+        if bad then return bad end
+      end
+      local res = shape_tool_result(tool.handler(args, ctx), tool)
+      return registry.max_result_bytes and too_big(res, registry.max_result_bytes) or res
     end,
     on_error = tool_error,
+    label = function(params) return "tool " .. tostring(params.name) end,
   }
 
   methods["resources/list"] = {
